@@ -73,8 +73,8 @@ class Server(object):
 
     def get_destination(self, address):
         """
-        Get the cached destination address for that corresponds to a given
-        source address.
+        Get the cached destination address that corresponds to a given source
+        address.
         """
 
         return self.routes[address] if address in self.routes else None

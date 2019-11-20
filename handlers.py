@@ -12,7 +12,7 @@ def _connect_to_db():
     cursor = dbconnect.cursor();
     return dbconnect, cursor
 
-def _send_JSON(server, JSON):
+def _send_JSON(server, source, JSON):
     data = json.dumps(JSON)
     server.send(data.encode('utf-8'), source)
 
@@ -45,7 +45,7 @@ def handle_register_user(server, body, source):
           "type": 4,
           "message": "Invalid user information"
         }
-        _send_JSON(server, errorJSON)
+        _send_JSON(server, source, errorJSON)
         return
 
     # Salt password
@@ -65,7 +65,7 @@ def handle_register_user(server, body, source):
           "type": 4,
           "message": "User already exists"
         }
-        _send_JSON(server, errorJSON)
+        _send_JSON(server, source, errorJSON)
         return
 
     # Send Confirmation to App
@@ -74,7 +74,7 @@ def handle_register_user(server, body, source):
       "type": 5,
       "message": "User registration successful"
     }
-    _send_JSON(server, ackJSON)
+    _send_JSON(server, source, ackJSON)
 
 def handle_register_car(server, body, source):
     print('REGISTER CAR') # TODO: Logging
@@ -95,7 +95,7 @@ def handle_register_car(server, body, source):
           "type": 4,
           "message": "Invalid car information"
         }
-        _send_JSON(server, errorJSON)
+        _send_JSON(server, source, errorJSON)
         return
 
     # Check that the user does not already have car with that name
@@ -112,7 +112,7 @@ def handle_register_car(server, body, source):
           "type": 4,
           "message": "Car name already registered"
         }
-        _send_JSON(server, errorJSON)
+        _send_JSON(server, source, errorJSON)
         return
 
     # Send Confirmation to App
@@ -121,7 +121,7 @@ def handle_register_car(server, body, source):
       "type": 5,
       "message": "Car registration successful"
     }
-    _send_JSON(server, ackJSON)
+    _send_JSON(server, source, ackJSON)
 
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging

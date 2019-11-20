@@ -9,8 +9,6 @@ class MsgType(IntEnum):
     REG_CAR = 1
     LOGIN = 2
     MOVEMENT = 3
-    ERROR = 4
-    ACK = 5
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='RC Camera Car Server.')

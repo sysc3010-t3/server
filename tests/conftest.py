@@ -43,6 +43,7 @@ def register_user(server):
         'password': 'mock_password',
     }
     s.sendto(json.dumps(req).encode('utf-8'), SERVER_ADDR)
+    s.settimeout(1)
     data, _ = s.recvfrom(BUFFER_SIZE)
     user_id = json.loads(data)['user_id']
 
@@ -58,6 +59,7 @@ def register_car(register_user):
         'user_id': user_id,
     }
     s.sendto(json.dumps(req).encode('utf-8'), SERVER_ADDR)
+    s.settimeout(1)
     data, _ = s.recvfrom(BUFFER_SIZE)
     car_id = json.loads(data)['car_id']
 

@@ -2,6 +2,8 @@ import json
 import socket
 import threading
 
+from utils import MsgType
+
 class Server(object):
     """
     A class that encapsulates the UDP server for the Remote-Controlled Camera
@@ -42,6 +44,8 @@ class Server(object):
                 body = json.loads(data)
             except json.JSONDecodeError:
                 print('Received invalid JSON') # TODO: Logging
+                data = ('{"type": %d}' % MsgType.ERROR).encode('utf-8')
+                self.send(data, addr)
                 continue
             if body['type'] in self.handlers:
                 handler_thread = threading.Thread(
@@ -50,7 +54,9 @@ class Server(object):
                 )
                 handler_thread.start()
             else:
-                print('Invalid message type', body)
+                print('Invalid message type', body) # TODO: Logging
+                data = ('{"type": %d}' % MsgType.ERROR).encode('utf-8')
+                self.send(data, addr)
 
     def send(self, data, address):
         """

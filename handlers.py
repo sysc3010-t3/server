@@ -76,6 +76,8 @@ def handle_register_user(server, body, source):
     }
     _send_JSON(server, source, ackJSON)
 
+    dbconnect.close()
+
 def handle_register_car(server, body, source):
     print('REGISTER CAR') # TODO: Logging
     '''
@@ -98,11 +100,24 @@ def handle_register_car(server, body, source):
         _send_JSON(server, source, errorJSON)
         return
 
-    # Check that the user does not already have car with that name
+    # Check that the user exists in the database
     dbconnect, cursor = _connect_to_db()
+    cursor.execute('''select * from users where (name='%s');''' %(userID))
+    entry = cursor.fetchone()
+    # Send error packet
+    if entry is None:
+        print("User is not registered")
+        errorJSON = {
+          "type": 4,
+          "message": "User is not registered"
+        }
+        _send_JSON(server, source, errorJSON)
+        return
+
+    # Check that the user does not already have car with that name
     cursor.execute('''select * from cars where (name='%s' and userID='%s');''' %(name, userID))
     entry = cursor.fetchone()
-
+    # Send error if car already exists
     if entry is None:
         cursor.execute('''insert into cars (name,ip,userID) values('%s','%s','%s');'''%(name,ip,'user1'))
         dbconnect.commit()
@@ -122,6 +137,8 @@ def handle_register_car(server, body, source):
       "message": "Car registration successful"
     }
     _send_JSON(server, source, ackJSON)
+
+    dbconnect.close()
 
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging

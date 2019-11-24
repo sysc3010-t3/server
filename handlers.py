@@ -1,7 +1,9 @@
 import json
 import sqlite3
 import hashlib, os
+
 from base64 import b64encode
+from utils import MsgType
 
 CAR_PORT = 6006 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
@@ -95,7 +97,7 @@ def handle_register_user(server, body, source):
     # Send Confirmation to App
     print("User registration successful")
     ackJSON = {
-      "type": 5,
+      "type": MsgType.ACK,
       "message": "User registration successful"
     }
     _send_JSON(server, source, ackJSON)
@@ -145,7 +147,7 @@ def handle_register_car(server, body, source):
     # Send Confirmation to App
     print("Car registration successful")
     ackJSON = {
-      "type": 5,
+      "type": MsgType.ACK,
       "message": "Car registration successful"
     }
     _send_JSON(server, source, ackJSON)

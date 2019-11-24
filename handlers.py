@@ -16,6 +16,14 @@ def _send_JSON(server, source, JSON):
     data = json.dumps(JSON)
     server.send(data.encode('utf-8'), source)
 
+def _format_error_JSON(message):
+    print(message)
+    returnJSON = {
+      "type": 4,
+      "message": message
+    }
+    return returnJSON
+
 def handle_movement(server, body, source):
     print('MOVEMENT') # TODO: Logging
     '''
@@ -23,6 +31,30 @@ def handle_movement(server, body, source):
     1. Get desination IP from cache (if not in cache, get from 'cars' table)
     2. Forward the message
     '''
+
+    # Get JSON data
+    name = body["name"]
+    x_axis = body["x_axis"]
+    y_axis = body["y_axis"]
+
+    # Check data is valid
+    if type(name) is not str or type(x_axis) is not int or type(y_axis) is not int:
+        errorJSON = _format_error_JSON("Invalid car information")
+        _send_JSON(server, source, errorJSON)
+        return
+    if not name or not x_axis or not y_axis:
+        errorJSON = _format_error_JSON("Invalid car information")
+        _send_JSON(server, source, errorJSON)
+        return
+
+    # Get car ip address from database.
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute('''select * from cars where (name='%s');''' %(name))
+    entry = cursor.fetchone()
+    '''if entry is None:
+    else:
+        return'''
+
     data = json.dumps(body).encode('utf-8')
     car_ip = 'localhost' # TODO: Make this read from cache or 'cars' table
     server.send(data, (car_ip, CAR_PORT))
@@ -40,11 +72,7 @@ def handle_register_user(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if not name or not password:
-        print("Invalid user information")
-        errorJSON = {
-          "type": 4,
-          "message": "Invalid user information"
-        }
+        errorJSON = _format_error_JSON("Invalid user information")
         _send_JSON(server, source, errorJSON)
         return
 
@@ -60,11 +88,7 @@ def handle_register_user(server, body, source):
         cursor.execute('''insert into users (name,salt,password) values('%s','%s','%s');'''%(name,b64encode(salt).decode('utf-8'),b64encode(password).decode('utf-8')))
         dbconnect.commit()
     else:
-        print("User already exists")
-        errorJSON = {
-          "type": 4,
-          "message": "User already exists"
-        }
+        errorJSON = _format_error_JSON("User already exists")
         _send_JSON(server, source, errorJSON)
         return
 
@@ -92,11 +116,7 @@ def handle_register_car(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if not name or not ip or not userID:
-        print("Invalid car information")
-        errorJSON = {
-          "type": 4,
-          "message": "Invalid car information"
-        }
+        errorJSON = _format_error_JSON("Invalid car information")
         _send_JSON(server, source, errorJSON)
         return
 
@@ -106,11 +126,7 @@ def handle_register_car(server, body, source):
     entry = cursor.fetchone()
     # Send error packet
     if entry is None:
-        print("User is not registered")
-        errorJSON = {
-          "type": 4,
-          "message": "User is not registered"
-        }
+        errorJSON = _format_error_JSON("User is not registered")
         _send_JSON(server, source, errorJSON)
         return
 
@@ -122,11 +138,7 @@ def handle_register_car(server, body, source):
         cursor.execute('''insert into cars (name,ip,userID) values('%s','%s','%s');'''%(name,ip,'user1'))
         dbconnect.commit()
     else:
-        print("Car name already registered")
-        errorJSON = {
-          "type": 4,
-          "message": "Car name already registered"
-        }
+        errorJSON = _format_error_JSON("Car name already registered")
         _send_JSON(server, source, errorJSON)
         return
 

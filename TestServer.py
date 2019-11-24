@@ -23,9 +23,7 @@ cursor.execute("DELETE FROM users WHERE name == 'user1'")
 cursor.execute("DELETE FROM cars WHERE userID == 'user1'")
 dbconnect.commit()
 dbconnect.close()
-
-
-
+# Constant values
 PORT = 8080
 HOST = "localhost"
 BUFFER_SIZE = 100

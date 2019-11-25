@@ -123,3 +123,9 @@ def handle_register_car(server, body, source):
 
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging
+    '''
+    TODO:
+    1. Compare salted-and-hashed passwords
+    2. If success: get car list from database and send to the app
+       If failure: send failed login message
+    '''

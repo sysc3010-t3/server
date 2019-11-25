@@ -2,10 +2,10 @@ import json
 import sqlite3
 import hashlib, os
 
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from utils import MsgType
 
-CAR_PORT = 6006 # Assume each car is listening on this port
+CAR_PORT = 8080 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
 
 
@@ -21,7 +21,7 @@ def _send_JSON(server, source, JSON):
 def _format_error_JSON(message):
     print(message)
     returnJSON = {
-      "type": 4,
+      "type": MsgType.ERROR,
       "message": message
     }
     return returnJSON
@@ -29,37 +29,44 @@ def _format_error_JSON(message):
 def handle_movement(server, body, source):
     print('MOVEMENT') # TODO: Logging
     '''
-    TODO:
     1. Get desination IP from cache (if not in cache, get from 'cars' table)
     2. Forward the message
     '''
 
     # Get JSON data
-    name = body["name"]
+    car_name = body["car_name"]
+    userID = body["userID"]
     x_axis = body["x_axis"]
     y_axis = body["y_axis"]
 
     # Check data is valid
-    if type(name) is not str or type(x_axis) is not int or type(y_axis) is not int:
-        errorJSON = _format_error_JSON("Invalid car information")
+    '''if type(car_name) is not str or type(x_axis) is not int or type(y_axis) is not int:
+        errorJSON = _format_error_JSON("Invalid movement information")
         _send_JSON(server, source, errorJSON)
-        return
-    if not name or not x_axis or not y_axis:
-        errorJSON = _format_error_JSON("Invalid car information")
-        _send_JSON(server, source, errorJSON)
-        return
-
-    # Get car ip address from database.
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute('''select * from cars where (name='%s');''' %(name))
-    entry = cursor.fetchone()
-    '''if entry is None:
-    else:
         return'''
+    if not car_name or not x_axis or not y_axis:
+        errorJSON = _format_error_JSON("Invalid movement information")
+        _send_JSON(server, source, errorJSON)
+        return
 
-    data = json.dumps(body).encode('utf-8')
-    car_ip = 'localhost' # TODO: Make this read from cache or 'cars' table
-    server.send(data, (car_ip, CAR_PORT))
+    # Check cache for car ip address
+    car_ip = server.get_ip(car_name)
+    if car_ip is None:
+    # Get car ip address from database.
+        dbconnect, cursor = _connect_to_db()
+        cursor.execute('''select * from cars where (name='%s') and (userID='%s');''' %(car_name, userID))
+        entry = cursor.fetchone()[2]
+        dbconnect.close()
+        if entry is None:
+            errorJSON = _format_error_JSON("Invalid car information")
+            _send_JSON(server, source, errorJSON)
+            return
+        car_ip = entry
+        server.add_ip(car_name, car_ip)
+
+    _send_JSON(server,(car_ip, CAR_PORT),body)
+    #_send_JSON(server,source,body)
+
 
 def handle_register_user(server, body, source):
     print('REGISTER USER') # TODO: Logging
@@ -80,6 +87,7 @@ def handle_register_user(server, body, source):
 
     # Salt password
     salt =  os.urandom(32)
+    print(salt)
     password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
 
     # Create user in db. Send an error if user already exists.
@@ -157,8 +165,49 @@ def handle_register_car(server, body, source):
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging
     '''
-    TODO:
     1. Compare salted-and-hashed passwords
     2. If success: get car list from database and send to the app
        If failure: send failed login message
     '''
+
+    # Get JSON data
+    name = body["name"]
+    password = body["password"]
+
+    # Check data is valid. if not, send an error packet
+    if not name or not password:
+        errorJSON = _format_error_JSON("Invalid user information")
+        _send_JSON(server, source, errorJSON)
+        return
+
+    # Get user from db. Send an error if user doesn't exist.
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute('''select * from users where (name='%s');''' %(name))
+    entry = cursor.fetchone()
+    dbconnect.close()
+    if entry is None:
+        errorJSON = _format_error_JSON("User does not exist")
+        _send_JSON(server, source, errorJSON)
+        return
+
+    # Get salt as bytes
+    salt =  entry[2]
+    b_salt = b64decode(salt.encode('utf-8'))
+    # Get salted password string from database
+    salted_password = entry[3]
+    # Salt the login password
+    new_password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), b_salt, 100000)
+    str_new_password = b64encode(new_password).decode('utf-8')
+
+    # Compare two passwords as strings
+    if str_new_password == salted_password:
+        # Send Confirmation to App
+        print("User login successful")
+        ackJSON = {
+          "type": MsgType.ACK,
+          "message": "User login successful"
+        }
+        _send_JSON(server, source, ackJSON)
+    else:
+        errorJSON = _format_error_JSON("Password is incorrect")
+        _send_JSON(server, source, errorJSON)

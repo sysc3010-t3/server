@@ -4,17 +4,7 @@ import pytest
 import server
 import handlers
 import sqlite3
-from enum import IntEnum
-
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-class MsgType(IntEnum):
-    REG_USER = 0
-    REG_CAR = 1
-    LOGIN = 2
-    MOVEMENT = 3
-    ERR = 4
-    ACK = 5
+from utils import MsgType
 
 # Clear the database of test values
 dbconnect = sqlite3.connect("RCCCar.db");
@@ -58,7 +48,7 @@ class TestServer:
           "password": "pass"
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_user_invalid_password(self):
         body = {
@@ -67,7 +57,7 @@ class TestServer:
           "password": ""
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_user_packet_success(self):
         body = {
@@ -91,7 +81,7 @@ class TestServer:
           "password": "pass"
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_car_invalid_car_name(self):
         body = {
@@ -101,7 +91,7 @@ class TestServer:
           "userID": "user1"
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_car_invalid_ip(self):
         body = {
@@ -111,7 +101,7 @@ class TestServer:
           "userID": "user1"
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_car_invalid_userID(self):
         body = {
@@ -121,7 +111,7 @@ class TestServer:
           "userID": ""
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_car_no_user(self):
         body = {
@@ -131,13 +121,13 @@ class TestServer:
           "userID": "user2"
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
 
     def test_register_car_packet_success(self):
         body = {
           "type": MsgType.REG_CAR,
           "name": "car1",
-          "ip": "127.0.0.1",
+          "ip": "localhost",
           "userID": "user1"
         }
         TestServer._send_packet(body)
@@ -153,8 +143,32 @@ class TestServer:
         body = {
           "type": MsgType.REG_CAR,
           "name": "car1",
-          "ip": "127.0.0.1",
+          "ip": "localhost",
           "userID": "user1"
         }
         TestServer._send_packet(body)
-        assert TestServer._receive_packet() == MsgType.ERR
+        assert TestServer._receive_packet() == MsgType.ERROR
+
+
+    def test_user_login_success(self):
+        body = {
+          "type": MsgType.LOGIN,
+          "name": "user1",
+          "password": "pass"
+        }
+        TestServer._send_packet(body)
+        assert TestServer._receive_packet() == MsgType.ACK
+
+
+    # Test not required
+    '''def test_move_success(self):
+        body = {
+          "type": MsgType.MOVE,
+          "car_name": "car1",
+          "userID": "user1",
+          "x_axis": "500",
+          "y_axis": "500"
+        }
+        TestServer._send_packet(body)
+        print("yup")
+        assert TestServer._receive_packet() == MsgType.MOVE'''

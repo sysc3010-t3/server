@@ -8,7 +8,6 @@ from utils import MsgType
 CAR_PORT = 6006 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
 
-
 def _connect_to_db():
     dbconnect = sqlite3.connect(DATABASE_NAME);
     cursor = dbconnect.cursor();
@@ -25,9 +24,6 @@ def handle_movement(server, body, source):
     1. Get desination IP from cache (if not in cache, get from 'cars' table)
     2. Forward the message
     '''
-    data = json.dumps(body).encode('utf-8')
-    car_ip = 'localhost' # TODO: Make this read from cache or 'cars' table
-    server.send(data, (car_ip, CAR_PORT))
 
 def handle_register_user(server, body, source):
     print('REGISTER USER') # TODO: Logging

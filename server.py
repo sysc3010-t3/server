@@ -2,7 +2,7 @@ import json
 import socket
 import threading
 
-from utils import MsgType
+from utils import MsgType, Error
 
 class Server(object):
     """
@@ -44,8 +44,7 @@ class Server(object):
                 body = json.loads(data)
             except json.JSONDecodeError:
                 print('Received invalid JSON') # TODO: Logging
-                data = ('{"type": %d}' % MsgType.ERROR).encode('utf-8')
-                self.send(data, addr)
+                self.send(Error.json(Error.BAD_REQ, 'invalid JSON'), addr)
                 continue
             if body['type'] in self.handlers:
                 handler_thread = threading.Thread(
@@ -55,8 +54,7 @@ class Server(object):
                 handler_thread.start()
             else:
                 print('Invalid message type', body) # TODO: Logging
-                data = ('{"type": %d}' % MsgType.ERROR).encode('utf-8')
-                self.send(data, addr)
+                self.send(Error.json(Error.BAD_REQ, 'invalid message type'), addr)
 
     def send(self, data, address):
         """

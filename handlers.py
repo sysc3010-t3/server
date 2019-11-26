@@ -132,15 +132,20 @@ def handle_connect_car(server, body, source):
         return
 
     dbconnect, cursor = _connect_to_db()
-    cursor.execute('select * from cars where (rowid=?);', (car_id,))
+    cursor.execute('select * from cars where (id=?);', (car_id,))
     entry = cursor.fetchone()
 
+    request_ip = source[0]
     if entry is None:
-        print('car does not exist')
-        server.send(Error.json(Error.BAD_REQ, 'car does not exist'), source)
+        msg = 'car does not exist'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+    elif entry[2] != request_ip:
+        msg = 'IP address does not match car ID'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
     else:
-        cursor.execute('update cars set isOn=1 where (rowid=?)', (car_id,))
-        dbconnect.commit()
+        cursor.execute('update cars set isOn=1 where (id=?);', (car_id,))
         data = '{"type": %d}' % MsgType.ACK
         server.send(data.encode('utf-8'), (source))
 

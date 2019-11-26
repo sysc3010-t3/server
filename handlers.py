@@ -132,7 +132,7 @@ def handle_connect_car(server, body, source):
         return
 
     dbconnect, cursor = _connect_to_db()
-    cursor.execute('select * from cars where (id=?);', (car_id,))
+    cursor.execute('select * from cars where (id=?)', (car_id,))
     entry = cursor.fetchone()
 
     request_ip = source[0]
@@ -145,7 +145,8 @@ def handle_connect_car(server, body, source):
         print(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
     else:
-        cursor.execute('update cars set isOn=1 where (id=?);', (car_id,))
+        cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
+        dbconnect.commit()
         data = '{"type": %d}' % MsgType.ACK
         server.send(data.encode('utf-8'), (source))
 

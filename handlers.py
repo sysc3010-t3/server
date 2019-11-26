@@ -40,10 +40,6 @@ def handle_movement(server, body, source):
     y_axis = body["y_axis"]
 
     # Check data is valid
-    '''if type(car_name) is not str or type(x_axis) is not int or type(y_axis) is not int:
-        errorJSON = _format_error_JSON("Invalid movement information")
-        _send_JSON(server, source, errorJSON)
-        return'''
     if not car_name or not x_axis or not y_axis:
         errorJSON = _format_error_JSON("Invalid movement information")
         _send_JSON(server, source, errorJSON)
@@ -54,7 +50,7 @@ def handle_movement(server, body, source):
     if car_ip is None:
     # Get car ip address from database.
         dbconnect, cursor = _connect_to_db()
-        cursor.execute('''select * from cars where (name='%s') and (userID='%s');''' %(car_name, userID))
+        cursor.execute("select * from cars where name=(?) and userID=(?)", (car_name, userID))
         entry = cursor.fetchone()[2]
         dbconnect.close()
         if entry is None:
@@ -66,7 +62,6 @@ def handle_movement(server, body, source):
 
     _send_JSON(server,(car_ip, CAR_PORT),body)
     #_send_JSON(server,source,body)
-
 
 def handle_register_user(server, body, source):
     print('REGISTER USER') # TODO: Logging
@@ -87,15 +82,15 @@ def handle_register_user(server, body, source):
 
     # Salt password
     salt =  os.urandom(32)
-    print(salt)
     password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
 
     # Create user in db. Send an error if user already exists.
     dbconnect, cursor = _connect_to_db()
-    cursor.execute('''select * from users where (name='%s');''' %(name))
+    cursor.execute("select * from users where name=(?)", [name])
     entry = cursor.fetchone()
     if entry is None:
-        cursor.execute('''insert into users (name,salt,password) values('%s','%s','%s');'''%(name,b64encode(salt).decode('utf-8'),b64encode(password).decode('utf-8')))
+        cursor.execute("insert into users (name,salt,password) values (?,?,?)",\
+        (name,b64encode(salt).decode('utf-8'), b64encode(password).decode('utf-8')))
         dbconnect.commit()
     else:
         errorJSON = _format_error_JSON("User already exists")
@@ -132,7 +127,7 @@ def handle_register_car(server, body, source):
 
     # Check that the user exists in the database
     dbconnect, cursor = _connect_to_db()
-    cursor.execute('''select * from users where (name='%s');''' %(userID))
+    cursor.execute("select * from users where name=(?)", [userID])
     entry = cursor.fetchone()
     # Send error packet
     if entry is None:
@@ -141,11 +136,11 @@ def handle_register_car(server, body, source):
         return
 
     # Check that the user does not already have car with that name
-    cursor.execute('''select * from cars where (name='%s' and userID='%s');''' %(name, userID))
+    cursor.execute("select * from cars where name=(?) and userID=(?)", (name, userID))
     entry = cursor.fetchone()
     # Send error if car already exists
     if entry is None:
-        cursor.execute('''insert into cars (name,ip,userID) values('%s','%s','%s');'''%(name,ip,'user1'))
+        cursor.execute("insert into cars (name,ip,userID) values(?,?,?)",(name, ip, userID))
         dbconnect.commit()
     else:
         errorJSON = _format_error_JSON("Car name already registered")
@@ -182,7 +177,7 @@ def handle_login(server, body, source):
 
     # Get user from db. Send an error if user doesn't exist.
     dbconnect, cursor = _connect_to_db()
-    cursor.execute('''select * from users where (name='%s');''' %(name))
+    cursor.execute("select * from users where name=(?)", [name])
     entry = cursor.fetchone()
     dbconnect.close()
     if entry is None:

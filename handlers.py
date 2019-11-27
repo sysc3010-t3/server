@@ -3,15 +3,14 @@ import sqlite3
 import hashlib, os
 
 from base64 import b64encode, b64decode
-from utils import MsgType
+from utils import MsgType, Error
 
 CAR_PORT = 8080 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
 
-
 def _connect_to_db():
-    dbconnect = sqlite3.connect(DATABASE_NAME);
-    cursor = dbconnect.cursor();
+    dbconnect = sqlite3.connect(DATABASE_NAME)
+    cursor = dbconnect.cursor()
     return dbconnect, cursor
 
 def _send_JSON(server, source, JSON):

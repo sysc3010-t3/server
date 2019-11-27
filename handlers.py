@@ -3,14 +3,14 @@ import sqlite3
 import hashlib, os
 
 from base64 import b64encode
-from utils import MsgType
+from utils import MsgType, Error
 
 CAR_PORT = 6006 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
 
 def _connect_to_db():
-    dbconnect = sqlite3.connect(DATABASE_NAME);
-    cursor = dbconnect.cursor();
+    dbconnect = sqlite3.connect(DATABASE_NAME)
+    cursor = dbconnect.cursor()
     return dbconnect, cursor
 
 def _send_JSON(server, source, JSON):
@@ -120,6 +120,37 @@ def handle_register_car(server, body, source):
       "message": "Car registration successful"
     }
     _send_JSON(server, source, ackJSON)
+
+def handle_connect_car(server, body, source):
+    print('CONNECT CAR')
+
+    car_id = body['car_id']
+
+    if not car_id:
+        print('missing field: car_id')
+        server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
+        return
+
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute('select * from cars where (id=?)', (car_id,))
+    entry = cursor.fetchone()
+
+    request_ip = source[0]
+    if entry is None:
+        msg = 'car does not exist'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+    elif entry[2] != request_ip:
+        msg = 'IP address does not match car ID'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+    else:
+        cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
+        dbconnect.commit()
+        data = '{"type": %d}' % MsgType.ACK
+        server.send(data.encode('utf-8'), (source))
+
+    dbconnect.close()
 
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging

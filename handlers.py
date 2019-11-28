@@ -33,33 +33,26 @@ def handle_movement(server, body, source):
     '''
 
     # Get JSON data
-    car_id = body["car_id"]
     x_axis = body["x_axis"]
     y_axis = body["y_axis"]
 
     # Check data is valid
-    if not car_id or not x_axis or not y_axis:
+    if not x_axis or not y_axis:
         message = "Invalid movement information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Check cache for car ip address
-    car_ip = server.get_destination(source)
+    car_ip = server.get_destination(source[0])
     if car_ip is None:
-    # Get car ip address from database.
-        dbconnect, cursor = _connect_to_db()
-        cursor.execute("select * from cars where id=(?)", [car_id])
-        entry = cursor.fetchone()[2]
-        dbconnect.close()
-        if entry is None:
-            message = "Invalid car information"
-            print(message)
-            server.send(Error.json(Error.BAD_REQ, message), source)
-            return
-        car_ip = entry
-        server.add_route(source[0], car_ip)
+    # Return bad request.
+        message = "Invalid car information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
 
+    # Send movement data to car
     _send_JSON(server,(car_ip, CAR_PORT),body)
     #_send_JSON(server,source,body)
 

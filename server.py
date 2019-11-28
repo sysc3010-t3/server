@@ -24,6 +24,7 @@ class Server(object):
 
         self.routes = {}
         self.handlers = {}
+        self.ips = {}
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.send_lock = threading.Lock()
 

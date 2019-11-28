@@ -2,10 +2,10 @@ import json
 import sqlite3
 import hashlib, os
 
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from utils import MsgType, Error
 
-CAR_PORT = 6006 # Assume each car is listening on this port
+CAR_PORT = 8080 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
 
 def _connect_to_db():
@@ -17,13 +17,44 @@ def _send_JSON(server, source, JSON):
     data = json.dumps(JSON)
     server.send(data.encode('utf-8'), source)
 
+def _format_error_JSON(message):
+    print(message)
+    returnJSON = {
+      "type": MsgType.ERROR,
+      "message": message
+    }
+    return returnJSON
+
 def handle_movement(server, body, source):
     print('MOVEMENT') # TODO: Logging
     '''
-    TODO:
     1. Get desination IP from cache (if not in cache, get from 'cars' table)
     2. Forward the message
     '''
+
+    # Get JSON data
+    x_axis = body["x_axis"]
+    y_axis = body["y_axis"]
+
+    # Check data is valid
+    if not x_axis or not y_axis:
+        message = "Invalid movement information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Check cache for car ip address
+    car_ip = server.get_destination(source[0])
+    if car_ip is None:
+    # Return bad request.
+        message = "Invalid car information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Send movement data to car
+    _send_JSON(server,(car_ip, CAR_PORT),body)
+    #_send_JSON(server,source,body)
 
 def handle_register_user(server, body, source):
     print('REGISTER USER') # TODO: Logging
@@ -38,12 +69,9 @@ def handle_register_user(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if not name or not password:
-        print("Invalid user information")
-        errorJSON = {
-          "type": MsgType.ERROR,
-          "message": "Invalid user information"
-        }
-        _send_JSON(server, source, errorJSON)
+        message = "Invalid user information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Salt password
@@ -52,18 +80,16 @@ def handle_register_user(server, body, source):
 
     # Create user in db. Send an error if user already exists.
     dbconnect, cursor = _connect_to_db()
-    cursor.execute('''select * from users where (name='%s');''' %(name))
+    cursor.execute("select * from users where name=(?)", [name])
     entry = cursor.fetchone()
     if entry is None:
-        cursor.execute('''insert into users (name,salt,password) values('%s','%s','%s');'''%(name,b64encode(salt).decode('utf-8'),b64encode(password).decode('utf-8')))
+        cursor.execute("insert into users (name,salt,password) values (?,?,?)",\
+        (name,b64encode(salt).decode('utf-8'), b64encode(password).decode('utf-8')))
         dbconnect.commit()
     else:
-        print("User already exists")
-        errorJSON = {
-          "type": MsgType.ERROR,
-          "message": "User already exists"
-        }
-        _send_JSON(server, source, errorJSON)
+        message = "User already exists"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Send Confirmation to App
@@ -73,6 +99,8 @@ def handle_register_user(server, body, source):
       "message": "User registration successful"
     }
     _send_JSON(server, source, ackJSON)
+
+    dbconnect.close()
 
 def handle_register_car(server, body, source):
     print('REGISTER CAR') # TODO: Logging
@@ -88,29 +116,33 @@ def handle_register_car(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if not name or not ip or not userID:
-        print("Invalid car information")
-        errorJSON = {
-          "type": MsgType.ERROR,
-          "message": "Invalid car information"
-        }
-        _send_JSON(server, source, errorJSON)
+        message = "Invalid car information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Check that the user exists in the database
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute("select * from users where name=(?)", [userID])
+    entry = cursor.fetchone()
+    # Send error packet
+    if entry is None:
+        message = "User is not registered"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Check that the user does not already have car with that name
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute('''select * from cars where (name='%s' and userID='%s');''' %(name, userID))
+    cursor.execute("select * from cars where name=(?) and userID=(?)", (name, userID))
     entry = cursor.fetchone()
-
+    # Send error if car already exists
     if entry is None:
-        cursor.execute('''insert into cars (name,ip,userID) values('%s','%s','%s');'''%(name,ip,'user1'))
+        cursor.execute("insert into cars (name,ip,userID) values(?,?,?)",(name, ip, userID))
         dbconnect.commit()
     else:
-        print("Car name already registered")
-        errorJSON = {
-          "type": MsgType.ERROR,
-          "message": "Car name already registered"
-        }
-        _send_JSON(server, source, errorJSON)
+        message = "Car name already registered"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Send Confirmation to App
@@ -120,6 +152,8 @@ def handle_register_car(server, body, source):
       "message": "Car registration successful"
     }
     _send_JSON(server, source, ackJSON)
+
+    dbconnect.close()
 
 def handle_connect_car(server, body, source):
     print('CONNECT CAR')
@@ -152,11 +186,56 @@ def handle_connect_car(server, body, source):
 
     dbconnect.close()
 
+
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging
     '''
-    TODO:
     1. Compare salted-and-hashed passwords
     2. If success: get car list from database and send to the app
        If failure: send failed login message
     '''
+
+    # Get JSON data
+    name = body["name"]
+    password = body["password"]
+
+    # Check data is valid. if not, send an error packet
+    if not name or not password:
+        message = "Invalid user information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Get user from db. Send an error if user doesn't exist.
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute("select * from users where name=(?)", [name])
+    entry = cursor.fetchone()
+    dbconnect.close()
+    if entry is None:
+        message = "User does not exist"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Get salt as bytes
+    salt =  entry[2]
+    b_salt = b64decode(salt.encode('utf-8'))
+    # Get salted password string from database
+    salted_password = entry[3]
+    # Salt the login password
+    new_password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), b_salt, 100000)
+    str_new_password = b64encode(new_password).decode('utf-8')
+
+    # Compare two passwords as strings
+    if str_new_password == salted_password:
+        # Send Confirmation to App
+        print("User login successful")
+        ackJSON = {
+          "type": MsgType.ACK,
+          "message": "User login successful"
+        }
+        _send_JSON(server, source, ackJSON)
+    else:
+        message = "Password is incorrect"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)

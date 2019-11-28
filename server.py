@@ -91,20 +91,3 @@ class Server(object):
         """
 
         self.handlers[message_type] = handler
-
-    def add_ip(self, car_name, ip):
-        """
-        Cache the source and destination addresses for a proxied-connection
-        between a client application and a car, with this server acting as the
-        proxy.
-        """
-
-        self.ips[car_name] = ip
-
-    def get_ip(self, car_name):
-        """
-        Get the cached destination address that corresponds to a given source
-        address.
-        """
-
-        return self.ips[car_name] if car_name in self.ips else None

@@ -164,11 +164,11 @@ class TestServer:
     '''def test_move_success(self):
         body = {
           "type": MsgType.MOVE,
-          "car_name": "car1",
-          "userID": "user1",
+          "car_id": 1,
           "x_axis": "500",
           "y_axis": "500"
         }
         TestServer._send_packet(body)
         print("yup")
-        assert TestServer._receive_packet() == MsgType.MOVE'''
+        assert TestServer._receive_packet() == MsgType.MOVE
+'''

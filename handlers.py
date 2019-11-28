@@ -33,19 +33,19 @@ def handle_movement(server, body, source):
     '''
 
     # Get JSON data
-    x_axis = body["x_axis"]
-    y_axis = body["y_axis"]
+    x = body['x']
+    y = body['y']
 
     # Check data is valid
-    if not x_axis or not y_axis:
+    if not x or not y:
         message = "Invalid movement information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Check cache for car ip address
-    car_ip = server.get_destination(source[0])
-    if car_ip is None:
+    car_addr = server.get_destination(source)
+    if car_addr is None:
     # Return bad request.
         message = "Invalid car information"
         print(message)
@@ -53,8 +53,7 @@ def handle_movement(server, body, source):
         return
 
     # Send movement data to car
-    _send_JSON(server,(car_ip, CAR_PORT),body)
-    #_send_JSON(server,source,body)
+    _send_JSON(server, car_addr, body)
 
 def handle_register_user(server, body, source):
     print('REGISTER USER') # TODO: Logging

@@ -160,3 +160,28 @@ def handle_login(server, body, source):
     2. If success: get car list from database and send to the app
        If failure: send failed login message
     '''
+
+def handle_link(server, body, source):
+    print('LINK')
+
+    car_id = body['car_id']
+
+    if not car_id:
+        print('missing field: car_id')
+        server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
+        return
+
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute('select * from cars where (id=?)', (car_id,))
+    entry = cursor.fetchone()
+
+    if entry == None:
+        msg = 'car does not exist'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+    else:
+        server.add_route(source[0], entry[2])
+        data = '{"type": %d}' % MsgType.ACK
+        server.send(data.encode('utf-8'), (source))
+
+    dbconnect.close()

@@ -148,7 +148,7 @@ def handle_connect_car(server, body, source):
         cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
         dbconnect.commit()
         data = '{"type": %d}' % MsgType.ACK
-        server.send(data.encode('utf-8'), (source))
+        server.send(data.encode('utf-8'), source)
 
     dbconnect.close()
 
@@ -180,8 +180,8 @@ def handle_link(server, body, source):
         print(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
     else:
-        server.add_route(source[0], entry[2])
+        server.add_route(source, (entry[2], CAR_PORT))
         data = '{"type": %d}' % MsgType.ACK
-        server.send(data.encode('utf-8'), (source))
+        server.send(data.encode('utf-8'), source)
 
     dbconnect.close()

@@ -238,3 +238,52 @@ def handle_login(server, body, source):
         message = "Password is incorrect"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
+
+
+def handle_set_led(server, body, source):
+    """
+    Sends SET_LED message to the destination that corresponds with the source
+    address in the cache.
+    """
+    print('SET_LED')
+
+    if 'state' not in body:
+        print('Missing field: state')
+        server.send(Error.json(Error.BAD_REQ, 'missing field: state'), source)
+        return
+
+    state = body['state']
+    if state < 0 or state > 2:
+        msg = 'state must be an int in range [0,2]'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
+    server.add_route(source, source)
+
+    car_addr = server.get_destination(source)
+    if car_addr == None:
+        msg = 'invalid destination'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
+    server.send(json.dumps(body).encode('utf-8'), car_addr)
+
+def handle_ack(server, body, source):
+    """
+    Sends ACK message to the destination that corresponds with the source
+    address in the cache.
+    """
+    print('ACK')
+
+    server.add_route(source, source)
+
+    dest = server.get_destination(source)
+    if dest == None:
+        msg = 'invalid destination'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
+    server.send(json.dumps(body).encode('utf-8'), dest)

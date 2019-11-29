@@ -12,6 +12,7 @@ class MsgType(IntEnum):
     REG_CAR = 6
     CONN_CAR = 7
     MOVE = 8
+    SET_LED = 11
 
 class Error(IntEnum):
     BAD_REQ = 0

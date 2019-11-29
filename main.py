@@ -13,8 +13,10 @@ if __name__ == '__main__':
     HOST = ''
 
     server = Server(HOST, PORT)
+    server.add_handler(MsgType.ACK, handlers.handle_ack)
     server.add_handler(MsgType.REG_USER, handlers.handle_register_user)
     server.add_handler(MsgType.REG_CAR, handlers.handle_register_car)
     server.add_handler(MsgType.LOGIN, handlers.handle_login)
     server.add_handler(MsgType.CONN_CAR, handlers.handle_connect_car)
     server.add_handler(MsgType.MOVE, handlers.handle_movement)
+    server.add_handler(MsgType.SET_LED, handlers.handle_set_led)

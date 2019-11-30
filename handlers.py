@@ -259,8 +259,6 @@ def handle_set_led(server, body, source):
         server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
-    server.add_route(source, source)
-
     car_addr = server.get_destination(source)
     if car_addr == None:
         msg = 'invalid destination'
@@ -276,8 +274,6 @@ def handle_ack(server, body, source):
     address in the cache.
     """
     print('ACK')
-
-    server.add_route(source, source)
 
     dest = server.get_destination(source)
     if dest == None:

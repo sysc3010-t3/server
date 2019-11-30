@@ -118,12 +118,12 @@ def handle_register_car(server, body, source):
 
     # Get JSON data
     name = body["name"]
-    userID = body["userID"]
+    user_id = body["user_id"]
 
     ip = source[0]
 
     # Check data is valid. if not, send an error packet
-    if not name or not userID:
+    if not name or not user_id:
         message = "Invalid car information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
@@ -131,7 +131,7 @@ def handle_register_car(server, body, source):
 
     # Check that the user exists in the database
     dbconnect, cursor = _connect_to_db()
-    cursor.execute("select * from users where id=(?)", [userID])
+    cursor.execute("select * from users where id=(?)", [user_id])
     entry = cursor.fetchone()
     # Send error packet
     if entry is None:
@@ -141,11 +141,11 @@ def handle_register_car(server, body, source):
         return
 
     # Check that the user does not already have car with that name
-    cursor.execute("select * from cars where name=(?) and userID=(?)", (name, userID))
+    cursor.execute("select * from cars where name=(?) and userID=(?)", (name, user_id))
     entry = cursor.fetchone()
     # Send error if car already exists
     if entry is None:
-        cursor.execute("insert into cars (name,ip,userID,isOn) values(?,?,?,?)",(name, ip, userID, 0))
+        cursor.execute("insert into cars (name,ip,userID,isOn) values(?,?,?,?)", (name, ip, user_id, 0))
         dbconnect.commit()
     else:
         message = "Car name already registered"

@@ -182,7 +182,7 @@ def handle_connect_car(server, body, source):
         cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
         dbconnect.commit()
         data = '{"type": %d}' % MsgType.ACK
-        server.send(data.encode('utf-8'), (source))
+        server.send(data.encode('utf-8'), source)
 
     dbconnect.close()
 
@@ -239,3 +239,28 @@ def handle_login(server, body, source):
         message = "Password is incorrect"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
+
+def handle_link(server, body, source):
+    print('LINK')
+
+    car_id = body['car_id']
+
+    if not car_id:
+        print('missing field: car_id')
+        server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
+        return
+
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute('select * from cars where (id=?)', (car_id,))
+    entry = cursor.fetchone()
+
+    if entry == None:
+        msg = 'car does not exist'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+    else:
+        server.add_route(source, (entry[2], CAR_PORT))
+        data = '{"type": %d}' % MsgType.ACK
+        server.send(data.encode('utf-8'), source)
+
+    dbconnect.close()

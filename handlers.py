@@ -1,5 +1,7 @@
 import json
+import re
 import sqlite3
+import subprocess
 import hashlib, os
 
 from base64 import b64encode, b64decode
@@ -7,6 +9,11 @@ from utils import MsgType, Error
 
 CAR_PORT = 8080 # Assume each car is listening on this port
 DATABASE_NAME = "RCCCar.db"
+
+HAPROXY_CFG = '/etc/haproxy/haproxy.cfg'
+ACL_START_REGEX = r'(#ACL_START\n)'
+RULE_START_REGEX = r'(#RULE_START\n)'
+BACKEND_START_REGEX = r'(#BACKEND_START\n)'
 
 def _connect_to_db():
     dbconnect = sqlite3.connect(DATABASE_NAME)
@@ -111,11 +118,12 @@ def handle_register_car(server, body, source):
 
     # Get JSON data
     name = body["name"]
-    ip = body["ip"]
     userID = body["userID"]
 
+    ip = source[0]
+
     # Check data is valid. if not, send an error packet
-    if not name or not ip or not userID:
+    if not name or not userID:
         message = "Invalid car information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
@@ -123,7 +131,7 @@ def handle_register_car(server, body, source):
 
     # Check that the user exists in the database
     dbconnect, cursor = _connect_to_db()
-    cursor.execute("select * from users where name=(?)", [userID])
+    cursor.execute("select * from users where id=(?)", [userID])
     entry = cursor.fetchone()
     # Send error packet
     if entry is None:
@@ -137,13 +145,41 @@ def handle_register_car(server, body, source):
     entry = cursor.fetchone()
     # Send error if car already exists
     if entry is None:
-        cursor.execute("insert into cars (name,ip,userID) values(?,?,?)",(name, ip, userID))
+        cursor.execute("insert into cars (name,ip,userID,isOn) values(?,?,?,?)",(name, ip, userID, 0))
         dbconnect.commit()
     else:
         message = "Car name already registered"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    car_id = cursor.lastrowid
+
+    with open(HAPROXY_CFG, 'r+') as cfg:
+        content = cfg.read()
+
+        cfg.seek(0)
+        cfg.truncate()
+
+        # Insert ACL based on car ID
+        acl_regex = r'\1    acl url_car{0} path_beg /{0}\n'.format(car_id)
+        content = re.sub(ACL_START_REGEX, acl_regex, content)
+
+        # Insert rule based on ACL
+        rule_regex = r'\1    use_backend car{0} if url_car{0}\n'.format(car_id)
+        content = re.sub(RULE_START_REGEX, rule_regex, content)
+
+        # Insert backend based on car IP
+        backend_regex = \
+r'''\1backend car{0}
+    mode http
+    reqrep ^([^\ ]*\ /){0}[/]?(.*)     \\1\\2
+    server car{0}_app {1}:8000 check\n\n'''.format(car_id, ip)
+        content = re.sub(BACKEND_START_REGEX, backend_regex, content)
+
+        cfg.write(content)
+
+    subprocess.run(['systemctl', 'restart', 'haproxy'])
 
     # Send Confirmation to App
     print("Car registration successful")

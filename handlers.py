@@ -33,19 +33,19 @@ def handle_movement(server, body, source):
     '''
 
     # Get JSON data
-    x_axis = body["x_axis"]
-    y_axis = body["y_axis"]
+    x = body['x']
+    y = body['y']
 
     # Check data is valid
-    if not x_axis or not y_axis:
+    if not x or not y:
         message = "Invalid movement information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Check cache for car ip address
-    car_ip = server.get_destination(source[0])
-    if car_ip is None:
+    car_addr = server.get_destination(source)
+    if car_addr is None:
     # Return bad request.
         message = "Invalid car information"
         print(message)
@@ -53,8 +53,7 @@ def handle_movement(server, body, source):
         return
 
     # Send movement data to car
-    _send_JSON(server,(car_ip, CAR_PORT),body)
-    #_send_JSON(server,source,body)
+    _send_JSON(server, car_addr, body)
 
 def handle_register_user(server, body, source):
     print('REGISTER USER') # TODO: Logging
@@ -264,3 +263,47 @@ def handle_link(server, body, source):
         server.send(data.encode('utf-8'), source)
 
     dbconnect.close()
+
+def handle_set_led(server, body, source):
+    """
+    Sends SET_LED message to the destination that corresponds with the source
+    address in the cache.
+    """
+    print('SET_LED')
+
+    if 'state' not in body:
+        print('Missing field: state')
+        server.send(Error.json(Error.BAD_REQ, 'missing field: state'), source)
+        return
+
+    state = body['state']
+    if state < 0 or state > 2:
+        msg = 'state must be an int in range [0,2]'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
+    car_addr = server.get_destination(source)
+    if car_addr == None:
+        msg = 'invalid destination'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
+    server.send(json.dumps(body).encode('utf-8'), car_addr)
+
+def handle_ack(server, body, source):
+    """
+    Sends ACK message to the destination that corresponds with the source
+    address in the cache.
+    """
+    print('ACK')
+
+    dest = server.get_destination(source)
+    if dest == None:
+        msg = 'invalid destination'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
+    server.send(json.dumps(body).encode('utf-8'), dest)

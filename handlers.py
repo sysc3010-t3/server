@@ -145,15 +145,6 @@ def handle_register_car(server, body, source):
             server.send(Error.json(Error.BAD_REQ, message), source)
             return
 
-            cursor.execute("select * from users where name=(?)", [userID])
-            entry = cursor.fetchone()
-            # Send error packet
-            if entry is None:
-                message = "User is not registered"
-                print(message)
-                server.send(Error.json(Error.BAD_REQ, message), source)
-                return
-
         car_id = cursor.lastrowid
 
     with open(HAPROXY_CFG, 'r+') as cfg:

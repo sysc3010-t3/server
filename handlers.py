@@ -39,16 +39,16 @@ def handle_movement(server, body, source):
     2. Forward the message
     '''
 
-    # Get JSON data
-    x = body['x']
-    y = body['y']
-
     # Check data is valid
-    if not x or not y:
+    if 'x' not in body or 'y' not in body:
         message = "Invalid movement information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    # Get JSON data
+    x = body['x']
+    y = body['y']
 
     # Check cache for car ip address
     car_addr = server.get_destination(source)
@@ -69,16 +69,16 @@ def handle_register_user(server, body, source):
     2. Send a confirmation (ACK) back to the app
     '''
 
-    # Get JSON data
-    name = body["name"]
-    password = body["password"]
-
     # Check data is valid. if not, send an error packet
-    if not name or not password:
+    if 'name' not in body or 'password' not in body:
         message = "Invalid user information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    # Get JSON data
+    name = body['name']
+    password = body['password']
 
     # Salt password
     salt =  os.urandom(32)
@@ -98,11 +98,13 @@ def handle_register_user(server, body, source):
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
+     user_id = cursor.lastrowid
+
     # Send Confirmation to App
     print("User registration successful")
     ackJSON = {
       "type": MsgType.ACK,
-      "message": "User registration successful"
+      "user_id": user_id,
     }
     _send_JSON(server, source, ackJSON)
 
@@ -115,18 +117,18 @@ def handle_register_car(server, body, source):
     2. Send a confirmation (ACK) back to the car
     '''
 
-    # Get JSON data
-    name = body["name"]
-    user_id = body["user_id"]
-
     ip = source[0]
 
     # Check data is valid. if not, send an error packet
-    if not name or not user_id:
+    if 'name' not in body or 'user_id' not in body:
         message = "Invalid car information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    # Get JSON data
+    name = body['name']
+    user_id = body['user_id']
 
     # Check that the user exists in the database
     dbconnect, cursor = _connect_to_db()
@@ -184,7 +186,7 @@ r'''\1backend car{0}
     print("Car registration successful")
     ackJSON = {
       "type": MsgType.ACK,
-      "message": "Car registration successful"
+      "car_id": car_id
     }
     _send_JSON(server, source, ackJSON)
 
@@ -193,12 +195,12 @@ r'''\1backend car{0}
 def handle_connect_car(server, body, source):
     print('CONNECT CAR')
 
-    car_id = body['car_id']
-
-    if not car_id:
+    if 'car_id' not in body:
         print('missing field: car_id')
         server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
         return
+
+    car_id = body['car_id']
 
     dbconnect, cursor = _connect_to_db()
     cursor.execute('select * from cars where (id=?)', (car_id,))
@@ -230,16 +232,16 @@ def handle_login(server, body, source):
        If failure: send failed login message
     '''
 
-    # Get JSON data
-    name = body["name"]
-    password = body["password"]
-
     # Check data is valid. if not, send an error packet
-    if not name or not password:
+    if 'name' not in body or 'password' not in body:
         message = "Invalid user information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    # Get JSON data
+    name = body['name']
+    password = body['password']
 
     # Get user from db. Send an error if user doesn't exist.
     dbconnect, cursor = _connect_to_db()
@@ -265,9 +267,10 @@ def handle_login(server, body, source):
     if str_new_password == salted_password:
         # Send Confirmation to App
         print("User login successful")
+        user_id = entry[0]
         ackJSON = {
           "type": MsgType.ACK,
-          "message": "User login successful"
+          "user_id": user_id
         }
         _send_JSON(server, source, ackJSON)
     else:
@@ -278,12 +281,12 @@ def handle_login(server, body, source):
 def handle_link(server, body, source):
     print('LINK')
 
-    car_id = body['car_id']
-
-    if not car_id:
+    if 'car_id' not in body:
         print('missing field: car_id')
         server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
         return
+
+    car_id = body['car_id']
 
     dbconnect, cursor = _connect_to_db()
     cursor.execute('select * from cars where (id=?)', (car_id,))

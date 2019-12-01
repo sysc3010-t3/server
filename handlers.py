@@ -239,3 +239,46 @@ def handle_login(server, body, source):
         message = "Password is incorrect"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
+
+def handle_get_cars(server, body, source):
+    print('GET CARS') # TODO: Logging
+    '''
+    1. Get lsit of cars form databse
+    2. If successful: send list of cars to app
+    '''
+
+    # Get JSON data
+    userID = body["userID"]
+
+    # Check data is valid. if not, send an error packet
+    if not userID:
+        message = "Invalid user ID"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Create cars list
+    cars = []
+
+    # Create user in db. Send an error if user already exists.
+    dbconnect, cursor = _connect_to_db()
+    cursor.execute("select * from cars where userID=(?)", [userID])
+    entry = cursor.fetchall()
+    dbconnect.close()
+    # Return error is no cors are under userID
+    if entry is None:
+        message = "User has no registered cars"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+    else:
+        # Add car name and id to list for each car returned
+        for row in entry:
+            cars.append({row[1]:row[0]})
+        
+        carsJSON = {
+          "type": MsgType.ACK,
+          "cars": cars
+         }
+        print(carsJSON)
+        _send_JSON(server,source,carsJSON)

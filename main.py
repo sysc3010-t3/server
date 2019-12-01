@@ -18,3 +18,4 @@ if __name__ == '__main__':
     server.add_handler(MsgType.LOGIN, handlers.handle_login)
     server.add_handler(MsgType.CONN_CAR, handlers.handle_connect_car)
     server.add_handler(MsgType.MOVE, handlers.handle_movement)
+    server.add_handler(MsgType.GET_CARS, handlers.handle_get_cars)

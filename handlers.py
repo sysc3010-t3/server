@@ -1,6 +1,5 @@
 import json
 import re
-import sqlite3
 import subprocess
 import hashlib, os
 
@@ -8,17 +7,11 @@ from base64 import b64encode, b64decode
 from utils import MsgType, Error
 
 CAR_PORT = 8080 # Assume each car is listening on this port
-DATABASE_NAME = "RCCCar.db"
 
 HAPROXY_CFG = '/etc/haproxy/haproxy.cfg'
 ACL_START_REGEX = r'(#ACL_START\n)'
 RULE_START_REGEX = r'(#RULE_START\n)'
 BACKEND_START_REGEX = r'(#BACKEND_START\n)'
-
-def _connect_to_db():
-    dbconnect = sqlite3.connect(DATABASE_NAME)
-    cursor = dbconnect.cursor()
-    return dbconnect, cursor
 
 def _send_JSON(server, source, JSON):
     data = json.dumps(JSON)
@@ -39,16 +32,16 @@ def handle_movement(server, body, source):
     2. Forward the message
     '''
 
-    # Get JSON data
-    x = body['x']
-    y = body['y']
-
     # Check data is valid
-    if not x or not y:
+    if 'x' not in body or 'y' not in body:
         message = "Invalid movement information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    # Get JSON data
+    x = body['x']
+    y = body['y']
 
     # Check cache for car ip address
     car_addr = server.get_destination(source)
@@ -69,44 +62,44 @@ def handle_register_user(server, body, source):
     2. Send a confirmation (ACK) back to the app
     '''
 
-    # Get JSON data
-    name = body["name"]
-    password = body["password"]
-
     # Check data is valid. if not, send an error packet
-    if not name or not password:
+    if 'name' not in body or 'password' not in body:
         message = "Invalid user information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
+
+    # Get JSON data
+    name = body['name']
+    password = body['password']
 
     # Salt password
     salt =  os.urandom(32)
     password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
 
     # Create user in db. Send an error if user already exists.
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute("select * from users where name=(?)", [name])
-    entry = cursor.fetchone()
-    if entry is None:
-        cursor.execute("insert into users (name,salt,password) values (?,?,?)",\
-        (name,b64encode(salt).decode('utf-8'), b64encode(password).decode('utf-8')))
-        dbconnect.commit()
-    else:
-        message = "User already exists"
-        print(message)
-        server.send(Error.json(Error.BAD_REQ, message), source)
-        return
+    with server.get_db() as (dbconnect, cursor):
+        cursor.execute("select * from users where name=(?)", [name])
+        entry = cursor.fetchone()
+        if entry is None:
+            cursor.execute("insert into users (name,salt,password) values (?,?,?)",\
+            (name,b64encode(salt).decode('utf-8'), b64encode(password).decode('utf-8')))
+            dbconnect.commit()
+        else:
+            message = "User already exists"
+            print(message)
+            server.send(Error.json(Error.BAD_REQ, message), source)
+            return
+
+        user_id = cursor.lastrowid
 
     # Send Confirmation to App
     print("User registration successful")
     ackJSON = {
       "type": MsgType.ACK,
-      "message": "User registration successful"
+      "user_id": user_id,
     }
     _send_JSON(server, source, ackJSON)
-
-    dbconnect.close()
 
 def handle_register_car(server, body, source):
     print('REGISTER CAR') # TODO: Logging
@@ -115,44 +108,44 @@ def handle_register_car(server, body, source):
     2. Send a confirmation (ACK) back to the car
     '''
 
-    # Get JSON data
-    name = body["name"]
-    user_id = body["user_id"]
-
     ip = source[0]
 
     # Check data is valid. if not, send an error packet
-    if not name or not user_id:
+    if 'name' not in body or 'user_id' not in body:
         message = "Invalid car information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
-    # Check that the user exists in the database
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute("select * from users where id=(?)", [user_id])
-    entry = cursor.fetchone()
-    # Send error packet
-    if entry is None:
-        message = "User is not registered"
-        print(message)
-        server.send(Error.json(Error.BAD_REQ, message), source)
-        return
+    # Get JSON data
+    name = body['name']
+    user_id = body['user_id']
 
-    # Check that the user does not already have car with that name
-    cursor.execute("select * from cars where name=(?) and userID=(?)", (name, user_id))
-    entry = cursor.fetchone()
-    # Send error if car already exists
-    if entry is None:
-        cursor.execute("insert into cars (name,ip,userID,isOn) values(?,?,?,?)", (name, ip, user_id, 0))
-        dbconnect.commit()
-    else:
-        message = "Car name already registered"
-        print(message)
-        server.send(Error.json(Error.BAD_REQ, message), source)
-        return
+    with server.get_db() as (dbconnect, cursor):
+        # Check that the user exists in the database
+        cursor.execute("select * from users where id=(?)", [user_id])
+        entry = cursor.fetchone()
+        # Send error packet
+        if entry is None:
+            message = "User is not registered"
+            print(message)
+            server.send(Error.json(Error.BAD_REQ, message), source)
+            return
 
-    car_id = cursor.lastrowid
+        # Check that the user does not already have car with that name
+        cursor.execute("select * from cars where name=(?) and userID=(?)", (name, user_id))
+        entry = cursor.fetchone()
+        # Send error if car already exists
+        if entry is None:
+            cursor.execute("insert into cars (name,ip,userID,isOn) values(?,?,?,?)", (name, ip, user_id, 0))
+            dbconnect.commit()
+        else:
+            message = "Car name already registered"
+            print(message)
+            server.send(Error.json(Error.BAD_REQ, message), source)
+            return
+
+        car_id = cursor.lastrowid
 
     with open(HAPROXY_CFG, 'r+') as cfg:
         content = cfg.read()
@@ -184,43 +177,38 @@ r'''\1backend car{0}
     print("Car registration successful")
     ackJSON = {
       "type": MsgType.ACK,
-      "message": "Car registration successful"
+      "car_id": car_id
     }
     _send_JSON(server, source, ackJSON)
-
-    dbconnect.close()
 
 def handle_connect_car(server, body, source):
     print('CONNECT CAR')
 
-    car_id = body['car_id']
-
-    if not car_id:
+    if 'car_id' not in body:
         print('missing field: car_id')
         server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
         return
 
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute('select * from cars where (id=?)', (car_id,))
-    entry = cursor.fetchone()
+    car_id = body['car_id']
 
-    request_ip = source[0]
-    if entry is None:
-        msg = 'car does not exist'
-        print(msg)
-        server.send(Error.json(Error.BAD_REQ, msg), source)
-    elif entry[2] != request_ip:
-        msg = 'IP address does not match car ID'
-        print(msg)
-        server.send(Error.json(Error.BAD_REQ, msg), source)
-    else:
-        cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
-        dbconnect.commit()
-        data = '{"type": %d}' % MsgType.ACK
-        server.send(data.encode('utf-8'), source)
+    with server.get_db() as (dbconnect, cursor):
+        cursor.execute('select * from cars where (id=?)', (car_id,))
+        entry = cursor.fetchone()
 
-    dbconnect.close()
-
+        request_ip = source[0]
+        if entry is None:
+            msg = 'car does not exist'
+            print(msg)
+            server.send(Error.json(Error.BAD_REQ, msg), source)
+        elif entry[2] != request_ip:
+            msg = 'IP address does not match car ID'
+            print(msg)
+            server.send(Error.json(Error.BAD_REQ, msg), source)
+        else:
+            cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
+            dbconnect.commit()
+            data = '{"type": %d}' % MsgType.ACK
+            server.send(data.encode('utf-8'), source)
 
 def handle_login(server, body, source):
     print('LOGIN') # TODO: Logging
@@ -230,22 +218,22 @@ def handle_login(server, body, source):
        If failure: send failed login message
     '''
 
-    # Get JSON data
-    name = body["name"]
-    password = body["password"]
-
     # Check data is valid. if not, send an error packet
-    if not name or not password:
+    if 'name' not in body or 'password' not in body:
         message = "Invalid user information"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
+    # Get JSON data
+    name = body['name']
+    password = body['password']
+
     # Get user from db. Send an error if user doesn't exist.
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute("select * from users where name=(?)", [name])
-    entry = cursor.fetchone()
-    dbconnect.close()
+    with server.get_db() as (dbconnect, cursor):
+        cursor.execute("select * from users where name=(?)", [name])
+        entry = cursor.fetchone()
+
     if entry is None:
         message = "User does not exist"
         print(message)
@@ -265,9 +253,10 @@ def handle_login(server, body, source):
     if str_new_password == salted_password:
         # Send Confirmation to App
         print("User login successful")
+        user_id = entry[0]
         ackJSON = {
           "type": MsgType.ACK,
-          "message": "User login successful"
+          "user_id": user_id
         }
         _send_JSON(server, source, ackJSON)
     else:
@@ -278,16 +267,16 @@ def handle_login(server, body, source):
 def handle_link(server, body, source):
     print('LINK')
 
-    car_id = body['car_id']
-
-    if not car_id:
+    if 'car_id' not in body:
         print('missing field: car_id')
         server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
         return
 
-    dbconnect, cursor = _connect_to_db()
-    cursor.execute('select * from cars where (id=?)', (car_id,))
-    entry = cursor.fetchone()
+    car_id = body['car_id']
+
+    with server.get_db() as (dbconnect, cursor):
+        cursor.execute('select * from cars where (id=?)', (car_id,))
+        entry = cursor.fetchone()
 
     if entry == None:
         msg = 'car does not exist'
@@ -297,8 +286,6 @@ def handle_link(server, body, source):
         server.add_route(source, (entry[2], CAR_PORT))
         data = '{"type": %d}' % MsgType.ACK
         server.send(data.encode('utf-8'), source)
-
-    dbconnect.close()
 
 def handle_set_led(server, body, source):
     """

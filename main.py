@@ -11,8 +11,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     PORT = args.port
     HOST = ''
+    DB_NAME = 'RCCar.db'
 
-    server = Server(HOST, PORT)
+    server = Server(HOST, PORT, DB_NAME)
     server.add_handler(MsgType.ACK, handlers.handle_ack)
     server.add_handler(MsgType.REG_USER, handlers.handle_register_user)
     server.add_handler(MsgType.REG_CAR, handlers.handle_register_car)

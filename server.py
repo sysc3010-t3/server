@@ -2,7 +2,7 @@ import json
 import socket
 import threading
 
-from utils import MsgType, Error
+from utils import MsgType, Error, Database
 
 class Server(object):
     """
@@ -16,7 +16,7 @@ class Server(object):
 
     BUFFER_SIZE = 100
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, db_name):
         """
         Create a new UDP server that will listen forever on a single socket
         bound to the given host and port.
@@ -26,6 +26,7 @@ class Server(object):
         self.handlers = {}
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.send_lock = threading.Lock()
+        self.db = Database(db_name)
 
         self.socket.bind((host, port))
         recv_thread = threading.Thread(target=self._receive_forever)
@@ -64,6 +65,13 @@ class Server(object):
 
         with self.send_lock:
             self.socket.sendto(data, address)
+
+    def get_db(self):
+        """
+        Get the Database object.
+        """
+
+        return self.db
 
     def add_route(self, address1, address2):
         """

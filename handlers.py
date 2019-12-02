@@ -362,7 +362,7 @@ def handle_get_cars(server, body, source):
         else:
             # Add car_name and car_id to list for each car returned
             for row in entry:
-                cars.append({row[1]:row[0]})
+                cars.append({"id":row[0],"name":row[1]})
 
             carsJSON = {
               "type": MsgType.ACK,

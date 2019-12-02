@@ -330,3 +330,42 @@ def handle_ack(server, body, source):
         return
 
     server.send(json.dumps(body).encode('utf-8'), dest)
+
+def handle_get_cars(server, body, source):
+    print('GET CARS') # TODO: Logging
+    '''
+    1. Get list of cars from databse
+    2. If successful: send list of cars to app
+    '''
+
+    # Check data is valid
+    if 'user_id' not in body:
+        message = "Invalid movement information"
+        print(message)
+        server.send(Error.json(Error.BAD_REQ, message), source)
+        return
+
+    # Get JSON data
+    user_id = body["user_id"]
+
+    # Create cars list
+    cars = []
+    with server.get_db() as (dbconnect, cursor):
+        cursor.execute("select * from cars where userID=(?)", [user_id])
+        entry = cursor.fetchall()
+        # Return error if no cars are under userID
+        if entry is None:
+            message = "User has no registered cars"
+            print(message)
+            server.send(Error.json(Error.BAD_REQ, message), source)
+            return
+        else:
+            # Add car_name and car_id to list for each car returned
+            for row in entry:
+                cars.append({row[1]:row[0]})
+
+            carsJSON = {
+              "type": MsgType.ACK,
+              "cars": cars
+             }
+            _send_JSON(server,source,carsJSON)

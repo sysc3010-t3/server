@@ -22,3 +22,4 @@ if __name__ == '__main__':
     server.add_handler(MsgType.CONN_CAR, handlers.handle_connect_car)
     server.add_handler(MsgType.MOVE, handlers.handle_movement)
     server.add_handler(MsgType.SET_LED, handlers.handle_set_led)
+    server.add_handler(MsgType.GET_CARS, handlers.handle_get_cars)

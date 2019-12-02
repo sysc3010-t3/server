@@ -340,7 +340,7 @@ def handle_get_cars(server, body, source):
 
     # Check data is valid
     if 'user_id' not in body:
-        message = "Invalid movement information"
+        message = "Missing field: user_id"
         print(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return

@@ -267,15 +267,17 @@ def handle_login(server, body, source):
 def handle_link(server, body, source):
     print('LINK')
 
-    if 'car_id' not in body:
-        print('missing field: car_id')
-        server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
+    if 'car_id' not in body or 'user_id' not in body:
+        msg = 'missing field: "car_id", "user_id" required'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
     car_id = body['car_id']
+    user_id = body['user_id']
 
-    with server.get_db() as (dbconnect, cursor):
-        cursor.execute('select * from cars where (id=?)', (car_id,))
+    with server.get_db() as (_, cursor):
+        cursor.execute('select * from cars where id=? and userID=?', (car_id, user_id))
         entry = cursor.fetchone()
 
     if entry == None:

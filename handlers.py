@@ -282,6 +282,10 @@ def handle_link(server, body, source):
         msg = 'car does not exist'
         print(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
+    elif not entry[3]: # Check the isOn column
+        msg = 'car is not available'
+        print(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
     else:
         server.add_route(source, (entry[2], CAR_PORT))
         data = '{"type": %d}' % MsgType.ACK

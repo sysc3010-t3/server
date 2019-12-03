@@ -350,7 +350,7 @@ def handle_get_cars(server, body, source):
 
     # Create cars list
     cars = []
-    with server.get_db() as (dbconnect, cursor):
+    with server.get_db() as (_, cursor):
         cursor.execute("select * from cars where userID=(?)", [user_id])
         entry = cursor.fetchall()
         # Return error if no cars are under userID
@@ -362,7 +362,11 @@ def handle_get_cars(server, body, source):
         else:
             # Add car_name and car_id to list for each car returned
             for row in entry:
-                cars.append({"id":row[0],"name":row[1]})
+                cars.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "is_on": bool(row[3])
+                })
 
             carsJSON = {
               "type": MsgType.ACK,

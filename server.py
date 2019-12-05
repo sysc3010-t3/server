@@ -1,6 +1,7 @@
 import json
 import socket
 import threading
+import logging
 
 from utils import MsgType, Error, Database
 
@@ -44,7 +45,7 @@ class Server(object):
             try:
                 body = json.loads(data)
             except json.JSONDecodeError:
-                print('Received invalid JSON') # TODO: Logging
+                logging.debug('Received invalid JSON')
                 self.send(Error.json(Error.BAD_REQ, 'invalid JSON'), addr)
                 continue
             if body['type'] in self.handlers:
@@ -54,7 +55,7 @@ class Server(object):
                 )
                 handler_thread.start()
             else:
-                print('Invalid message type', body) # TODO: Logging
+                logging.debug('Invalid message type', body)
                 self.send(Error.json(Error.BAD_REQ, 'invalid message type'), addr)
 
     def send(self, data, address):

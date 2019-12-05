@@ -35,7 +35,7 @@ def handle_movement(server, body, source):
 
     # Check data is valid
     if 'x' not in body or 'y' not in body:
-        message = "Invalid movement information"
+        message = 'missing field: "x", "y" required'
         logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
@@ -44,11 +44,18 @@ def handle_movement(server, body, source):
     x = body['x']
     y = body['y']
 
+    if not isinstance(x, int) or not isinstance(y, int) or \
+            x < 0 or x > 1023 or y < 0 or y > 1023:
+        msg = '"x" and "y" values must be within the range [0, 1023]'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), addr)
+        return
+
     # Check cache for car ip address
     car_addr = server.get_destination(source)
     if car_addr is None:
     # Return bad request.
-        message = "Invalid car information"
+        message = 'car not connected'
         logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
@@ -65,7 +72,7 @@ def handle_register_user(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if 'name' not in body or 'password' not in body:
-        message = "Invalid user information"
+        message = 'missing field: "name", "password" required'
         logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
@@ -73,6 +80,12 @@ def handle_register_user(server, body, source):
     # Get JSON data
     name = body['name']
     password = body['password']
+
+    if not isinstance(name, str) or not isinstance(password, str):
+        msg = '"name" and "password" must be strings'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     # Salt password
     salt =  os.urandom(32)
@@ -113,7 +126,7 @@ def handle_register_car(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if 'name' not in body or 'user_id' not in body:
-        message = "Invalid car information"
+        message = 'missing field: "name", "user_id" required'
         logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
@@ -121,6 +134,12 @@ def handle_register_car(server, body, source):
     # Get JSON data
     name = body['name']
     user_id = body['user_id']
+
+    if not isinstance(name, str) or not isinstance(user_id, int):
+        msg = '"name" must be a string and "user_id" must be an integer'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     with server.get_db() as (dbconnect, cursor):
         # Check that the user exists in the database
@@ -192,6 +211,12 @@ def handle_connect_car(server, body, source):
 
     car_id = body['car_id']
 
+    if not isinstance(car_id, int):
+        msg = '"car_id" must be an integer'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
     with server.get_db() as (dbconnect, cursor):
         cursor.execute('select * from cars where (id=?)', (car_id,))
         entry = cursor.fetchone()
@@ -221,7 +246,7 @@ def handle_login(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if 'name' not in body or 'password' not in body:
-        message = "Invalid user information"
+        message = 'missing field: "name", "password" required'
         logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
@@ -229,6 +254,12 @@ def handle_login(server, body, source):
     # Get JSON data
     name = body['name']
     password = body['password']
+
+    if not isinstance(name, str) or not isinstance(password, str):
+        msg = '"name" and "password" must be strings'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     # Get user from db. Send an error if user doesn't exist.
     with server.get_db() as (dbconnect, cursor):
@@ -277,6 +308,12 @@ def handle_link(server, body, source):
     car_id = body['car_id']
     user_id = body['user_id']
 
+    if not isinstance(car_id, int) or not isinstance(user_id, int):
+        msg = '"car_id" and "user_id" must be integers'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
+
     with server.get_db() as (_, cursor):
         cursor.execute('select * from cars where id=? and userID=?', (car_id, user_id))
         entry = cursor.fetchone()
@@ -302,12 +339,14 @@ def handle_set_led(server, body, source):
     logging.debug('SET_LED')
 
     if 'state' not in body:
-        logging.debug('Missing field: state')
-        server.send(Error.json(Error.BAD_REQ, 'missing field: state'), source)
+        msg = 'missing field: "state" required'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
     state = body['state']
-    if state < 0 or state > 2:
+
+    if not isinstance(state, int) or state < 0 or state > 2:
         msg = 'state must be an int in range [0,2]'
         logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
@@ -347,13 +386,19 @@ def handle_get_cars(server, body, source):
 
     # Check data is valid
     if 'user_id' not in body:
-        message = "Missing field: user_id"
+        message = 'missing field: "user_id" required'
         logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Get JSON data
     user_id = body["user_id"]
+
+    if not isinstance(user_id, int):
+        msg = '"user_id" must be an integer'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     # Create cars list
     cars = []

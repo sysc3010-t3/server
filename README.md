@@ -32,11 +32,11 @@ tested to run on the Raspbian operating system.
      6006 for UDP requests from apps and cars.  
 
 ## Code Structure
-* `server.py`: class defining the general UDP server logic for receiving and
-sending
-* `handlers.py`: functions defining how the server will handle all the different
-message types it receives
-* `main.py`: entrypoint for running the server; creates an instance of the
-`Server` class
-* `utils.py`: general utility classes and functions
-* `tests/`: location of test code
+* [server.py](./server.py): class defining the general UDP server logic for
+receiving and sending
+* [handlers.py](./handlers.py): functions defining how the server will handle
+all the different message types it receives
+* [main.py](./main.py): entrypoint for running the server; creates an instance
+of the `Server` class
+* [utils.py](./utils.py): general utility classes and functions
+* [tests/](./tests/): location of test code

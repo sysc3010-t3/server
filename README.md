@@ -30,3 +30,13 @@ tested to run on the Raspbian operating system.
   a) Python 3 should come pre-installed on Raspbian.  
   b) Run `sudo python3 main.py 6006`. The server will now be listening on port
      6006 for UDP requests from apps and cars.  
+
+## Code Structure
+* `server.py`: class defining the general UDP server logic for receiving and
+sending
+* `handlers.py`: functions defining how the server will handle all the different
+message types it receives
+* `main.py`: entrypoint for running the server; creates an instance of the
+`Server` class
+* `utils.py`: general utility classes and functions
+* `tests/`: location of test code

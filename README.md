@@ -28,4 +28,5 @@ tested to run on the Raspbian operating system.
      create the tables, then exit.  
 3. Run the server.  
   a) Python 3 should come pre-installed on Raspbian.  
-  b) Run `sudo python3 main.py 6006`. The server will now be listening on port      6006 for requests from apps and cars.  
+  b) Run `sudo python3 main.py 6006`. The server will now be listening on port
+     6006 for UDP requests from apps and cars.  

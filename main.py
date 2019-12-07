@@ -1,3 +1,4 @@
+import logging
 import argparse
 import handlers
 
@@ -12,6 +13,13 @@ if __name__ == '__main__':
     PORT = args.port
     HOST = ''
     DB_NAME = 'RCCar.db'
+
+    logging.basicConfig(
+        filename='server.log',
+        level=logging.DEBUG,
+        format='%(asctime)s, msg: %(message)s, level: %(levelname)s',
+        datefmt='%m/%d/%Y %H:%M:%S'
+    )
 
     server = Server(HOST, PORT, DB_NAME)
     server.add_handler(MsgType.ACK, handlers.handle_ack)

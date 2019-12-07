@@ -1,3 +1,4 @@
+import logging
 import json
 import re
 import subprocess
@@ -18,7 +19,7 @@ def _send_JSON(server, source, JSON):
     server.send(data.encode('utf-8'), source)
 
 def _format_error_JSON(message):
-    print(message)
+    logging.debug(message)
     returnJSON = {
       "type": MsgType.ERROR,
       "message": message
@@ -26,7 +27,7 @@ def _format_error_JSON(message):
     return returnJSON
 
 def handle_movement(server, body, source):
-    print('MOVEMENT') # TODO: Logging
+    logging.debug('MOVEMENT')
     '''
     1. Get desination IP from cache (if not in cache, get from 'cars' table)
     2. Forward the message
@@ -34,8 +35,8 @@ def handle_movement(server, body, source):
 
     # Check data is valid
     if 'x' not in body or 'y' not in body:
-        message = "Invalid movement information"
-        print(message)
+        message = 'missing field: "x", "y" required'
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
@@ -43,12 +44,19 @@ def handle_movement(server, body, source):
     x = body['x']
     y = body['y']
 
+    if not isinstance(x, int) or not isinstance(y, int) or \
+            x < 0 or x > 1023 or y < 0 or y > 1023:
+        msg = '"x" and "y" values must be within the range [0, 1023]'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), addr)
+        return
+
     # Check cache for car ip address
     car_addr = server.get_destination(source)
     if car_addr is None:
     # Return bad request.
-        message = "Invalid car information"
-        print(message)
+        message = 'car not connected'
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
@@ -56,7 +64,7 @@ def handle_movement(server, body, source):
     _send_JSON(server, car_addr, body)
 
 def handle_register_user(server, body, source):
-    print('REGISTER USER') # TODO: Logging
+    logging.debug('REGISTER USER')
     '''
     1. Store username, salt, and salted-and-hashed-password in 'users' table
     2. Send a confirmation (ACK) back to the app
@@ -64,14 +72,20 @@ def handle_register_user(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if 'name' not in body or 'password' not in body:
-        message = "Invalid user information"
-        print(message)
+        message = 'missing field: "name", "password" required'
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Get JSON data
     name = body['name']
     password = body['password']
+
+    if not isinstance(name, str) or not isinstance(password, str):
+        msg = '"name" and "password" must be strings'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     # Salt password
     salt =  os.urandom(32)
@@ -87,14 +101,14 @@ def handle_register_user(server, body, source):
             dbconnect.commit()
         else:
             message = "User already exists"
-            print(message)
+            logging.debug(message)
             server.send(Error.json(Error.BAD_REQ, message), source)
             return
 
         user_id = cursor.lastrowid
 
     # Send Confirmation to App
-    print("User registration successful")
+    logging.debug("User registration successful")
     ackJSON = {
       "type": MsgType.ACK,
       "user_id": user_id,
@@ -102,7 +116,7 @@ def handle_register_user(server, body, source):
     _send_JSON(server, source, ackJSON)
 
 def handle_register_car(server, body, source):
-    print('REGISTER CAR') # TODO: Logging
+    logging.debug('REGISTER CAR')
     '''
     1. Add a row in the 'cars' table
     2. Send a confirmation (ACK) back to the car
@@ -112,14 +126,20 @@ def handle_register_car(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if 'name' not in body or 'user_id' not in body:
-        message = "Invalid car information"
-        print(message)
+        message = 'missing field: "name", "user_id" required'
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Get JSON data
     name = body['name']
     user_id = body['user_id']
+
+    if not isinstance(name, str) or not isinstance(user_id, int):
+        msg = '"name" must be a string and "user_id" must be an integer'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     with server.get_db() as (dbconnect, cursor):
         # Check that the user exists in the database
@@ -128,7 +148,7 @@ def handle_register_car(server, body, source):
         # Send error packet
         if entry is None:
             message = "User is not registered"
-            print(message)
+            logging.debug(message)
             server.send(Error.json(Error.BAD_REQ, message), source)
             return
 
@@ -141,7 +161,7 @@ def handle_register_car(server, body, source):
             dbconnect.commit()
         else:
             message = "Car name already registered"
-            print(message)
+            logging.debug(message)
             server.send(Error.json(Error.BAD_REQ, message), source)
             return
 
@@ -174,7 +194,7 @@ r'''\1backend car{0}
     subprocess.run(['systemctl', 'restart', 'haproxy'])
 
     # Send Confirmation to App
-    print("Car registration successful")
+    logging.debug("Car registration successful")
     ackJSON = {
       "type": MsgType.ACK,
       "car_id": car_id
@@ -182,14 +202,20 @@ r'''\1backend car{0}
     _send_JSON(server, source, ackJSON)
 
 def handle_connect_car(server, body, source):
-    print('CONNECT CAR')
+    logging.debug('CONNECT CAR')
 
     if 'car_id' not in body:
-        print('missing field: car_id')
+        logging.debug('missing field: car_id')
         server.send(Error.json(Error.BAD_REQ, 'missing field: car_id'), source)
         return
 
     car_id = body['car_id']
+
+    if not isinstance(car_id, int):
+        msg = '"car_id" must be an integer'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     with server.get_db() as (dbconnect, cursor):
         cursor.execute('select * from cars where (id=?)', (car_id,))
@@ -198,11 +224,11 @@ def handle_connect_car(server, body, source):
         request_ip = source[0]
         if entry is None:
             msg = 'car does not exist'
-            print(msg)
+            logging.debug(msg)
             server.send(Error.json(Error.BAD_REQ, msg), source)
         elif entry[2] != request_ip:
             msg = 'IP address does not match car ID'
-            print(msg)
+            logging.debug(msg)
             server.send(Error.json(Error.BAD_REQ, msg), source)
         else:
             cursor.execute('update cars set isOn=1 where (id=?)', (car_id,))
@@ -211,7 +237,7 @@ def handle_connect_car(server, body, source):
             server.send(data.encode('utf-8'), source)
 
 def handle_login(server, body, source):
-    print('LOGIN') # TODO: Logging
+    logging.debug('LOGIN')
     '''
     1. Compare salted-and-hashed passwords
     2. If success: get car list from database and send to the app
@@ -220,14 +246,20 @@ def handle_login(server, body, source):
 
     # Check data is valid. if not, send an error packet
     if 'name' not in body or 'password' not in body:
-        message = "Invalid user information"
-        print(message)
+        message = 'missing field: "name", "password" required'
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Get JSON data
     name = body['name']
     password = body['password']
+
+    if not isinstance(name, str) or not isinstance(password, str):
+        msg = '"name" and "password" must be strings'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     # Get user from db. Send an error if user doesn't exist.
     with server.get_db() as (dbconnect, cursor):
@@ -236,7 +268,7 @@ def handle_login(server, body, source):
 
     if entry is None:
         message = "User does not exist"
-        print(message)
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
@@ -252,7 +284,7 @@ def handle_login(server, body, source):
     # Compare two passwords as strings
     if str_new_password == salted_password:
         # Send Confirmation to App
-        print("User login successful")
+        logging.debug("User login successful")
         user_id = entry[0]
         ackJSON = {
           "type": MsgType.ACK,
@@ -261,20 +293,26 @@ def handle_login(server, body, source):
         _send_JSON(server, source, ackJSON)
     else:
         message = "Password is incorrect"
-        print(message)
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
 
 def handle_link(server, body, source):
-    print('LINK')
+    logging.debug('LINK')
 
     if 'car_id' not in body or 'user_id' not in body:
         msg = 'missing field: "car_id", "user_id" required'
-        print(msg)
+        logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
     car_id = body['car_id']
     user_id = body['user_id']
+
+    if not isinstance(car_id, int) or not isinstance(user_id, int):
+        msg = '"car_id" and "user_id" must be integers'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     with server.get_db() as (_, cursor):
         cursor.execute('select * from cars where id=? and userID=?', (car_id, user_id))
@@ -282,11 +320,11 @@ def handle_link(server, body, source):
 
     if entry == None:
         msg = 'car does not exist'
-        print(msg)
+        logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
     elif not entry[3]: # Check the isOn column
         msg = 'car is not available'
-        print(msg)
+        logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
     else:
         server.add_route(source, (entry[2], CAR_PORT))
@@ -298,24 +336,26 @@ def handle_set_led(server, body, source):
     Sends SET_LED message to the destination that corresponds with the source
     address in the cache.
     """
-    print('SET_LED')
+    logging.debug('SET_LED')
 
     if 'state' not in body:
-        print('Missing field: state')
-        server.send(Error.json(Error.BAD_REQ, 'missing field: state'), source)
+        msg = 'missing field: "state" required'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
     state = body['state']
-    if state < 0 or state > 2:
+
+    if not isinstance(state, int) or state < 0 or state > 2:
         msg = 'state must be an int in range [0,2]'
-        print(msg)
+        logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
     car_addr = server.get_destination(source)
     if car_addr == None:
         msg = 'invalid destination'
-        print(msg)
+        logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
@@ -326,19 +366,19 @@ def handle_ack(server, body, source):
     Sends ACK message to the destination that corresponds with the source
     address in the cache.
     """
-    print('ACK')
+    logging.debug('ACK')
 
     dest = server.get_destination(source)
     if dest == None:
         msg = 'invalid destination'
-        print(msg)
+        logging.debug(msg)
         server.send(Error.json(Error.BAD_REQ, msg), source)
         return
 
     server.send(json.dumps(body).encode('utf-8'), dest)
 
 def handle_get_cars(server, body, source):
-    print('GET CARS') # TODO: Logging
+    logging.debug('GET CARS')
     '''
     1. Get list of cars from databse
     2. If successful: send list of cars to app
@@ -346,13 +386,19 @@ def handle_get_cars(server, body, source):
 
     # Check data is valid
     if 'user_id' not in body:
-        message = "Missing field: user_id"
-        print(message)
+        message = 'missing field: "user_id" required'
+        logging.debug(message)
         server.send(Error.json(Error.BAD_REQ, message), source)
         return
 
     # Get JSON data
     user_id = body["user_id"]
+
+    if not isinstance(user_id, int):
+        msg = '"user_id" must be an integer'
+        logging.debug(msg)
+        server.send(Error.json(Error.BAD_REQ, msg), source)
+        return
 
     # Create cars list
     cars = []
@@ -362,7 +408,7 @@ def handle_get_cars(server, body, source):
         # Return error if no cars are under userID
         if entry is None:
             message = "User has no registered cars"
-            print(message)
+            logging.debug(message)
             server.send(Error.json(Error.BAD_REQ, message), source)
             return
         else:
